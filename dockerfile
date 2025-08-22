@@ -1,7 +1,7 @@
-# Use official PHP image with Apache
-FROM php:8.2-apache
+# Use PHP 8.1 which has better IMAP compatibility
+FROM php:8.1-apache
 
-# Install dependencies in a single layer
+# Install all dependencies including IMAP
 RUN apt-get update && apt-get install -y \
     zip \
     unzip \
@@ -15,8 +15,11 @@ RUN apt-get update && apt-get install -y \
     libjpeg62-turbo-dev \
     libfreetype6-dev \
     libwebp-dev \
+    libc-client-dev \
+    libkrb5-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
-    && docker-php-ext-install -j$(nproc) pdo pdo_mysql mysqli zip gd \
+    && docker-php-ext-configure imap --with-kerberos --with-imap-ssl \
+    && docker-php-ext-install -j$(nproc) pdo pdo_mysql mysqli zip gd imap \
     && a2enmod rewrite \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
