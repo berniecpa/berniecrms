@@ -16,29 +16,39 @@ RUN apt-get update && apt-get install -y \
     libjpeg62-turbo-dev \
     libfreetype6-dev \
     libwebp-dev \
-    # IMAP dependencies
+    # Dependencies needed for IMAP
     libkrb5-dev \
+    libssl-dev \
+    libpam0g-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install libc-client for IMAP (special handling required)
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    libc-client2007e-dev \
+# Manually install IMAP from source
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    wget \
+    && cd /tmp \
+    && wget https://github.com/uw-imap/imap/archive/refs/heads/master.tar.gz \
+    && tar -xzf master.tar.gz \
+    && cd imap-master \
+    && make lnp SSLTYPE=unix EXTRACFLAGS=-fPIC \
+    && mkdir -p /usr/local/imap-2007f/{lib,include} \
+    && cp c-client/*.h /usr/local/imap-2007f/include/ \
+    && cp c-client/*.c /usr/local/imap-2007f/lib/ \
+    && cp c-client/c-client.a /usr/local/imap-2007f/lib/libc-client.a \
+    && cd /tmp \
+    && rm -rf /tmp/* \
     && rm -rf /var/lib/apt/lists/*
 
-# Configure GD with all image support
+# Configure and install PHP extensions
 RUN docker-php-ext-configure gd \
     --with-freetype \
     --with-jpeg \
-    --with-webp
-
-# Configure IMAP with SSL support
-RUN docker-php-ext-configure imap \
+    --with-webp \
+    && docker-php-ext-configure imap \
     --with-kerberos \
-    --with-imap-ssl
-
-# Install PHP extensions
-RUN docker-php-ext-install -j$(nproc) \
+    --with-imap-ssl \
+    --with-imap=/usr/local/imap-2007f \
+    && docker-php-ext-install -j$(nproc) \
     pdo \
     pdo_mysql \
     mysqli \
