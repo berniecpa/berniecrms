@@ -1,27 +1,38 @@
-FROM php:8.4-apache
+FROM php:8.1-apache
 
-# Install everything in one RUN command for smaller image
+# Enable Apache mod_rewrite
+RUN a2enmod rewrite
+
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
-    gcc g++ make autoconf libc-dev pkg-config \
-    libkrb5-dev libc-client-dev libssl-dev \
-    libpng-dev libjpeg-dev libjpeg62-turbo-dev libfreetype6-dev libwebp-dev \
-    libzip-dev zip unzip git curl \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
-    && docker-php-ext-install -j$(nproc) pdo pdo_mysql mysqli gd zip \
-    && pecl install imap \
-    && docker-php-ext-enable imap \
-    && a2enmod rewrite \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    libicu-dev \
+    libxml2-dev \
+    libzip-dev \
+    libpng-dev \
+    libjpeg-dev \
+    libfreetype6-dev \
+    libmcrypt-dev \
+    libonig-dev \
+    libcurl4-openssl-dev \
+    libssl-dev \
+    libc-client-dev \
+    libkrb5-dev \
+    unzip \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install Composer
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+# Install PHP extensions
+RUN docker-php-ext-configure imap --with-kerberos --with-imap-ssl \
+    && docker-php-ext-install imap mysqli pdo pdo_mysql curl openssl mbstring iconv gd zip intl
 
-# Set working directory and copy files
+# Enable Apache mod_headers (recommended for .htaccess/CORS)
+RUN a2enmod headers
+
+# Enable allow_url_fopen
+RUN echo "allow_url_fopen = On" >> /usr/local/etc/php/conf.d/docker-php-custom.ini
+
+# Set working directory (optional, change as needed)
 WORKDIR /var/www/html
-COPY . .
 
-# Fix permissions
-RUN chown -R www-data:www-data /var/www/html && chmod -R 755 /var/www/html
-
+# Expose HTTP port
 EXPOSE 80
+
