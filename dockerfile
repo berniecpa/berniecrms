@@ -13,22 +13,32 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     # Dependencies for GD extension
     libjpeg-dev \
+    libjpeg62-turbo-dev \
     libfreetype6-dev \
     libwebp-dev \
-    # Dependencies for IMAP extension
-    libc-client-dev \
+    # IMAP dependencies
     libkrb5-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Configure and install PHP extensions
+# Install libc-client for IMAP (special handling required)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    libc-client2007e-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Configure GD with all image support
 RUN docker-php-ext-configure gd \
     --with-freetype \
     --with-jpeg \
-    --with-webp \
-    && docker-php-ext-configure imap \
+    --with-webp
+
+# Configure IMAP with SSL support
+RUN docker-php-ext-configure imap \
     --with-kerberos \
-    --with-imap-ssl \
-    && docker-php-ext-install \
+    --with-imap-ssl
+
+# Install PHP extensions
+RUN docker-php-ext-install -j$(nproc) \
     pdo \
     pdo_mysql \
     mysqli \
