@@ -1,38 +1,54 @@
 FROM php:8.1-apache
 
-# Enable Apache mod_rewrite
-RUN a2enmod rewrite
-
-# Install system dependencies
+# Install system dependencies required for PHP extensions
 RUN apt-get update && apt-get install -y \
-    libicu-dev \
-    libxml2-dev \
-    libzip-dev \
-    libpng-dev \
-    libjpeg-dev \
-    libfreetype6-dev \
-    libmcrypt-dev \
-    libonig-dev \
-    libcurl4-openssl-dev \
-    libssl-dev \
+    # For IMAP extension
     libc-client-dev \
     libkrb5-dev \
-    unzip \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    # For GD extension
+    libfreetype6-dev \
+    libjpeg62-turbo-dev \
+    libpng-dev \
+    # For Zip extension
+    libzip-dev \
+    # For various extensions
+    libssl-dev \
+    libcurl4-openssl-dev \
+    # Cleanup
+    && rm -rf /var/lib/apt/lists/*
 
-# Install PHP extensions
-RUN docker-php-ext-configure imap --with-kerberos --with-imap-ssl \
-    && docker-php-ext-install imap mysqli pdo pdo_mysql curl openssl mbstring iconv gd zip intl
+# Configure and install PHP extensions
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-configure imap --with-kerberos --with-imap-ssl \
+    && docker-php-ext-install -j$(nproc) \
+    mysqli \
+    pdo \
+    pdo_mysql \
+    curl \
+    mbstring \
+    iconv \
+    imap \
+    gd \
+    zip
 
-# Enable Apache mod_headers (recommended for .htaccess/CORS)
-RUN a2enmod headers
+# Enable Apache modules
+RUN a2enmod rewrite ssl
 
-# Enable allow_url_fopen
-RUN echo "allow_url_fopen = On" >> /usr/local/etc/php/conf.d/docker-php-custom.ini
+# Configure PHP settings
+RUN echo "allow_url_fopen = On" >> /usr/local/etc/php/conf.d/custom.ini \
+    && echo "memory_limit = 256M" >> /usr/local/etc/php/conf.d/custom.ini \
+    && echo "upload_max_filesize = 64M" >> /usr/local/etc/php/conf.d/custom.ini \
+    && echo "post_max_size = 64M" >> /usr/local/etc/php/conf.d/custom.ini
 
-# Set working directory (optional, change as needed)
+# Set working directory
 WORKDIR /var/www/html
 
-# Expose HTTP port
-EXPOSE 80
+# Copy your application files (uncomment and modify as needed)
+# COPY . /var/www/html/
 
+# Set proper permissions
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 755 /var/www/html
+
+# Expose port 80
+EXPOSE 80
